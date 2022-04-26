@@ -21,6 +21,7 @@ import json
 
 from .client import ClientThread
 from .thread_pauser import ThreadPauser
+from .fps import FPS
 from io import BytesIO
 
 # queue module was renamed between python 2 and 3
@@ -50,6 +51,7 @@ class UnityTcpSender:
         self.next_srv_id = 1001
         self.srv_lock = threading.Lock()
         self.services_waiting = {}
+        self.fps = FPS(printevery=5, name="== All Packets")
 
     def send_unity_info(self, text):
         if self.queue is not None:
@@ -169,6 +171,7 @@ class UnityTcpSender:
                     continue
 
                 # print("Sender {} sending an item".format(tid))
+                self.fps()
 
                 try:
                     conn.sendall(item)
