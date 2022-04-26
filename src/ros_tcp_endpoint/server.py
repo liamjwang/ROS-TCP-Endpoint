@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from ast import Sub
 import rospy
 import socket
 import logging
@@ -161,6 +162,7 @@ class SysCommands:
             new_subscriber = TfSubscriber(topic, message_class, self.tcp_server, rate_hz=rate_hz)
         else:
             new_subscriber = RateLimitSubscriber(topic, message_class, self.tcp_server, rate_hz=rate_hz)
+        # new_subscriber=RosSubscriber(topic, message_class, self.tcp_server)
             
         self.tcp_server.subscribers_table[topic] = new_subscriber
 

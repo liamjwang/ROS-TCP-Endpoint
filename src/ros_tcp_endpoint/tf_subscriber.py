@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from ros_tcp_endpoint.fps import FPS
 import rospy
 import socket
 import re
@@ -28,6 +29,7 @@ class TfSubscriber(RosSubscriber):
     def __init__(self, topic, message_class, tcp_server, queue_size=10, rate_hz=0):
         super(TfSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
         self.last_publish_dict = {}
+        self.fps_dict = {}
     #     """
 
     #     Args:
@@ -58,9 +60,11 @@ class TfSubscriber(RosSubscriber):
         """
         key = data.transforms[0].child_frame_id
         if key in self.last_publish_dict:
-            if data.transforms[0].header.stamp - self.last_publish_dict[key] < rospy.Duration(2):
+            if data.transforms[0].header.stamp - self.last_publish_dict[key] < rospy.Duration(0.1):
                 return self.msg
-        print(data.transforms[0].child_frame_id)
+        if key not in self.fps_dict:
+            self.fps_dict[key] = FPS(printevery=5, name="tf::"+key)
+        self.fps_dict[key]()
         self.last_publish_dict[key] = data.transforms[0].header.stamp
         self.tcp_server.send_unity_message(self.topic, data)
         # print("send tf")

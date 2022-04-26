@@ -28,11 +28,13 @@ class RateLimitSubscriber(RosSubscriber):
     def __init__(self, topic, message_class, tcp_server, queue_size=10, rate_hz=0):
         super(RateLimitSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
         self.last_publish_time = rospy.Time.now()
+        if rate_hz == 0:
+            rate_hz = 10
         self.rate_hz = rate_hz
         self.timer = None
         self.timer_running = False
         self.latest_msg = None
-        self.fps = FPS(printevery=1, name=self.topic)
+        self.fps = FPS(printevery=5, name=self.topic)
     #     """
 
     #     Args:
@@ -58,30 +60,33 @@ class RateLimitSubscriber(RosSubscriber):
             data: message data to send outside of ROS network
 
         """
-        if self.rate_hz == 0:
-            self.send_latest_msg()
-            return
 
         self.latest_msg = data
 
+        if self.rate_hz == 0:
+            self.send_latest_msg()
+            return self.msg
+
         # the timer is going to publish the latest message
         if self.timer_running:
-            return
+            return self.msg
 
         # timer is not running and there has been no message for a while
         curr_time = rospy.Time.now()
         if curr_time - self.last_publish_time > rospy.Duration(1.0 / self.rate_hz):
             self.send_latest_msg()
-            return
+            return self.msg
         
         # timer is not running but there has been a recent message
         self.timer_running = True
-        rospy.Timer(rospy.Duration(1/self.rate_hz), self.send_latest_msg, oneshot=True)
-        return
+        rospy.Timer(rospy.Duration(1.0/self.rate_hz), self.send_latest_msg, oneshot=True)
+        return self.msg
 
-    def send_latest_msg(self):
-        if self.latest_msg is not None and self.sub is not None:
-            self.tcp_server.send_unity_message(self.topic, self.latest_msg)
+    def send_latest_msg(self, _=None):
+        msg = self.latest_msg
+        if msg is not None and self.sub is not None:
+            self.tcp_server.send_unity_message(self.topic, msg)
+            # if self.topic == "/trajectory/poses": print("------ sending trajectory -------")
             self.fps()
             self.last_publish_time = rospy.Time.now()
             self.latest_msg = None
