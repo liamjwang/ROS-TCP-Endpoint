@@ -27,6 +27,7 @@ from .publisher import RosPublisher
 from .service import RosService
 from .unity_service import UnityService
 from .tf_subscriber import TfSubscriber
+from .rate_limit_subscriber import RateLimitSubscriber
 
 class TcpServer:
     """
@@ -135,7 +136,8 @@ class SysCommands:
     def __init__(self, tcp_server):
         self.tcp_server = tcp_server
 
-    def subscribe(self, topic, message_name):
+    def subscribe(self, topic, message_name, rate_hz=10):
+        print("subscribe: {} {} {}".format(topic, message_name, rate_hz))
         if topic == "":
             self.tcp_server.send_unity_error(
                 "Can't subscribe to a blank topic name! SysCommand.subscribe({}, {})".format(
@@ -156,9 +158,9 @@ class SysCommands:
             self.tcp_server.unregister_node(old_node)
 
         if message_name == "tf2_msgs/TFMessage":
-            new_subscriber = TfSubscriber(topic, message_class, self.tcp_server)
+            new_subscriber = TfSubscriber(topic, message_class, self.tcp_server, rate_hz=rate_hz)
         else:
-            new_subscriber = RosSubscriber(topic, message_class, self.tcp_server)
+            new_subscriber = RateLimitSubscriber(topic, message_class, self.tcp_server, rate_hz=rate_hz)
             
         self.tcp_server.subscribers_table[topic] = new_subscriber
 

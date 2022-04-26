@@ -44,8 +44,6 @@ class RosSubscriber(RosReceiver):
         # Start Subscriber listener function
         self.sub = rospy.Subscriber(self.topic, self.msg, self.send)
 
-        self.last_publish_time = rospy.Time.now()
-
     def send(self, data):
         """
         Connect to TCP endpoint on client and pass along message
@@ -56,10 +54,6 @@ class RosSubscriber(RosReceiver):
             self.msg: The deserialize message
 
         """
-        if rospy.Time.now() - self.last_publish_time < rospy.Duration(2):
-            return self.msg
-        print(self.topic)
-        self.last_publish_time = rospy.Time.now()
         self.tcp_server.send_unity_message(self.topic, data)
         return self.msg
 

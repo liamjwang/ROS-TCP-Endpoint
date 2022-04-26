@@ -17,17 +17,22 @@ import socket
 import re
 
 from .subscriber import RosSubscriber
-# from tf2_msgs import TFMessage
+from .fps import FPS
 
 
-class TfSubscriber(RosSubscriber):
+class RateLimitSubscriber(RosSubscriber):
     """
     Class to send messages outside of ROS network
     """
 
     def __init__(self, topic, message_class, tcp_server, queue_size=10, rate_hz=0):
-        super(TfSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
-        self.last_publish_dict = {}
+        super(RateLimitSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
+        self.last_publish_time = rospy.Time.now()
+        self.rate_hz = rate_hz
+        self.timer = None
+        self.timer_running = False
+        self.latest_msg = None
+        self.fps = FPS(printevery=1, name=self.topic)
     #     """
 
     #     Args:
@@ -52,19 +57,35 @@ class TfSubscriber(RosSubscriber):
         Args:
             data: message data to send outside of ROS network
 
-        Returns:
-            self.msg: The deserialize message
-
         """
-        key = data.transforms[0].child_frame_id
-        if key in self.last_publish_dict:
-            if data.transforms[0].header.stamp - self.last_publish_dict[key] < rospy.Duration(2):
-                return self.msg
-        print(data.transforms[0].child_frame_id)
-        self.last_publish_dict[key] = data.transforms[0].header.stamp
-        self.tcp_server.send_unity_message(self.topic, data)
-        # print("send tf")
-        return self.msg
+        if self.rate_hz == 0:
+            self.send_latest_msg()
+            return
+
+        self.latest_msg = data
+
+        # the timer is going to publish the latest message
+        if self.timer_running:
+            return
+
+        # timer is not running and there has been no message for a while
+        curr_time = rospy.Time.now()
+        if curr_time - self.last_publish_time > rospy.Duration(1.0 / self.rate_hz):
+            self.send_latest_msg()
+            return
+        
+        # timer is not running but there has been a recent message
+        self.timer_running = True
+        rospy.Timer(rospy.Duration(1/self.rate_hz), self.send_latest_msg, oneshot=True)
+        return
+
+    def send_latest_msg(self):
+        if self.latest_msg is not None and self.sub is not None:
+            self.tcp_server.send_unity_message(self.topic, self.latest_msg)
+            self.fps()
+            self.last_publish_time = rospy.Time.now()
+            self.latest_msg = None
+        self.timer_running = False
 
     # def unregister(self):
     #     """
