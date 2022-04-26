@@ -26,7 +26,7 @@ from .subscriber import RosSubscriber
 from .publisher import RosPublisher
 from .service import RosService
 from .unity_service import UnityService
-
+from .tf_subscriber import TfSubscriber
 
 class TcpServer:
     """
@@ -155,7 +155,11 @@ class SysCommands:
         if old_node is not None:
             self.tcp_server.unregister_node(old_node)
 
-        new_subscriber = RosSubscriber(topic, message_class, self.tcp_server)
+        if message_name == "tf2_msgs/TFMessage":
+            new_subscriber = TfSubscriber(topic, message_class, self.tcp_server)
+        else:
+            new_subscriber = RosSubscriber(topic, message_class, self.tcp_server)
+            
         self.tcp_server.subscribers_table[topic] = new_subscriber
 
         self.tcp_server.loginfo("RegisterSubscriber({}, {}) OK".format(topic, message_class))

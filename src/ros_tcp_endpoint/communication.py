@@ -26,7 +26,7 @@ class RosSender:
         raise NotImplementedError
 
 
-class RosReceiver:
+class RosReceiver(object):
     """
         Base class for ROS communication where data is being sent outside of the ROS network.
     """
