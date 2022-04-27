@@ -29,7 +29,6 @@ class TfSubscriber(RosSubscriber):
     def __init__(self, topic, message_class, tcp_server, queue_size=10, rate_hz=0):
         super(TfSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
         self.last_publish_dict = {}
-        self.fps_dict = {}
     #     """
 
     #     Args:
@@ -60,15 +59,42 @@ class TfSubscriber(RosSubscriber):
         """
         key = data.transforms[0].child_frame_id
         if key in self.last_publish_dict:
-            if data.transforms[0].header.stamp - self.last_publish_dict[key] < rospy.Duration(0.1):
+            if data.transforms[0].header.stamp - self.last_publish_dict[key]["stamp"] < rospy.Duration(0.1):
                 return self.msg
-        if key not in self.fps_dict:
-            self.fps_dict[key] = FPS(printevery=5, name="tf::"+key)
-        self.fps_dict[key]()
-        self.last_publish_dict[key] = data.transforms[0].header.stamp
+        else:
+            self.last_publish_dict[key] = {"stamp": data.transforms[0].header.stamp, "fps": FPS(printevery=5, name="tf::"+key), "lastdata": None}
+        dictitem = self.last_publish_dict[key]
+        
+        if approx_compare(strip_timestamps(data), dictitem["lastdata"]):
+            return self.msg
+
+        dictitem["stamp"] = data.transforms[0].header.stamp
+        dictitem["fps"]()
+        dictitem["lastdata"] = strip_timestamps(data)
         self.tcp_server.send_unity_message(self.topic, data)
-        # print("send tf")
+        # if key == "forearm_link":
+            # print(dictitem["lastdata"])
+        
         return self.msg
+
+def strip_timestamps(tfmsg):
+    return [(x.header.frame_id, x.child_frame_id, x.transform) for x in tfmsg.transforms]
+
+def approx_compare(a, b):
+    if type(a) != type(b):
+        return False
+
+    if hasattr(a, '__iter__'):
+        if len(a) != len(b):
+            return False
+        return all((approx_compare(x, y) for x, y in zip(a, b)))
+    elif isinstance(a, float) and isinstance(b, float):
+        return abs(a - b) < 0.0001
+    elif hasattr(a, '__slots__'):
+        return all((approx_compare(getattr(a, field), getattr(b, field)) for field in a.__slots__))
+    else:
+        return a == b
+
 
     # def unregister(self):
     #     """
