@@ -138,7 +138,6 @@ class SysCommands:
         self.tcp_server = tcp_server
 
     def subscribe(self, topic, message_name, rate_hz=10):
-        print("subscribe: {} {} {}".format(topic, message_name, rate_hz))
         if topic == "":
             self.tcp_server.send_unity_error(
                 "Can't subscribe to a blank topic name! SysCommand.subscribe({}, {})".format(
