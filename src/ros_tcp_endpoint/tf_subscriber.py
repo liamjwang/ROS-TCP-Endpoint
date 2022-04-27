@@ -89,7 +89,7 @@ def approx_compare(a, b):
             return False
         return all((approx_compare(x, y) for x, y in zip(a, b)))
     elif isinstance(a, float) and isinstance(b, float):
-        return abs(a - b) < 0.0001
+        return abs(a - b) < 0.0005
     elif hasattr(a, '__slots__'):
         return all((approx_compare(getattr(a, field), getattr(b, field)) for field in a.__slots__))
     else:
