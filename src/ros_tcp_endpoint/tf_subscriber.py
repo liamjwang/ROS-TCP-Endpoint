@@ -57,7 +57,7 @@ class TfSubscriber(RosSubscriber):
             self.msg: The deserialize message
 
         """
-        key = data.transforms[0].child_frame_id
+        key = data.transforms[0].child_frame_id # todo: need to key off of individual transforms
         if key in self.last_publish_dict:
             if data.transforms[0].header.stamp - self.last_publish_dict[key]["stamp"] < rospy.Duration(0.1):
                 return self.msg
