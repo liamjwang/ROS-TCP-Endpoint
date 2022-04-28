@@ -54,7 +54,7 @@ class RateLimitSubscriber(RosSubscriber):
         r = Rate(self.rate_hz)
         while not self.halt_event.is_set():
             try:
-                msg = self.queue.get()
+                msg = self.queue.get(timeout=1)
             except queue.Empty:
                 continue
             try:
