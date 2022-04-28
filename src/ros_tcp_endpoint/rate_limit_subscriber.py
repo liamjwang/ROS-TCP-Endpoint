@@ -15,7 +15,10 @@
 import rospy
 import socket
 import re
+import threading
+import Queue as queue
 
+from .rate import Rate
 from .subscriber import RosSubscriber
 from .fps import FPS
 
@@ -27,31 +30,13 @@ class RateLimitSubscriber(RosSubscriber):
 
     def __init__(self, topic, message_class, tcp_server, queue_size=10, rate_hz=0):
         super(RateLimitSubscriber, self).__init__(topic, message_class, tcp_server, queue_size)
-        self.last_publish_time = rospy.Time.now()
         if rate_hz == 0:
             rate_hz = 10
         self.rate_hz = rate_hz
-        self.timer = None
-        self.timer_running = False
-        self.latest_msg = None
         self.fps = FPS(printevery=5, name=self.topic)
-    #     """
-
-    #     Args:
-    #         topic:         Topic name to publish messages to
-    #         message_class: The message class in catkin workspace
-    #         queue_size:    Max number of entries to maintain in an outgoing queue
-    #     """
-    #     strippedTopic = re.sub("[^A-Za-z0-9_]+", "", topic)
-    #     self.node_name = "{}_RosSubscriber".format(strippedTopic)
-    #     RosReceiver.__init__(self, self.node_name)
-    #     self.topic = topic
-    #     self.msg = message_class
-    #     self.tcp_server = tcp_server
-    #     self.queue_size = queue_size
-
-    #     # Start Subscriber listener function
-    #     self.sub = rospy.Subscriber(self.topic, self.msg, self.send)
+        self.queue = queue.Queue()
+        self.halt_event = threading.Event()
+        threading.Thread(target=self.send_ratelimited_loop).start()
 
     def send(self, data):
         """
@@ -59,44 +44,34 @@ class RateLimitSubscriber(RosSubscriber):
         Args:
             data: message data to send outside of ROS network
 
+
         """
 
-        self.latest_msg = data
-
-        if self.rate_hz == 0:
-            self.send_latest_msg()
-            return self.msg
-
-        # the timer is going to publish the latest message
-        if self.timer_running:
-            return self.msg
-
-        # timer is not running and there has been no message for a while
-        curr_time = rospy.Time.now()
-        if curr_time - self.last_publish_time > rospy.Duration(1.0 / self.rate_hz):
-            self.send_latest_msg()
-            return self.msg
-        
-        # timer is not running but there has been a recent message
-        self.timer_running = True
-        rospy.Timer(rospy.Duration(1.0/self.rate_hz), self.send_latest_msg, oneshot=True)
+        self.queue.put(data)
         return self.msg
 
-    def send_latest_msg(self, _=None):
-        msg = self.latest_msg
-        if msg is not None and self.sub is not None:
+    def send_ratelimited_loop(self, _=None):
+        r = Rate(self.rate_hz)
+        while not self.halt_event.is_set():
+            try:
+                msg = self.queue.get()
+            except queue.Empty:
+                continue
+            try:
+                for _ in range(1000):
+                    msg = self.queue.get(block=False)
+            except queue.Empty:
+                pass
             self.tcp_server.send_unity_message(self.topic, msg)
-            # if self.topic == "/trajectory/poses": print("------ sending trajectory -------")
             self.fps()
-            self.last_publish_time = rospy.Time.now()
-            self.latest_msg = None
-        self.timer_running = False
+            r.sleep()
 
-    # def unregister(self):
-    #     """
+    def unregister(self):
+        """
 
-    #     Returns:
+        Returns:
 
-    #     """
-    #     if not self.sub is None:
-    #         self.sub.unregister()
+        """
+        self.halt_event.set()
+        if not self.sub is None:
+            self.sub.unregister()

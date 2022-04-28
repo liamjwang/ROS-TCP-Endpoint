@@ -165,7 +165,7 @@ class SysCommands:
             
         self.tcp_server.subscribers_table[topic] = new_subscriber
 
-        self.tcp_server.loginfo("RegisterSubscriber({}, {}) OK".format(topic, message_class))
+        self.tcp_server.loginfo("RegisterSubscriber({}, {}, {}) OK".format(topic, message_name, rate_hz))
 
     def publish(self, topic, message_name, queue_size=10, latch=False):
         if topic == "":
