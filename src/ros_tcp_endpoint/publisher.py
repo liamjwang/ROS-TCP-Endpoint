@@ -15,7 +15,15 @@
 import rospy
 import re
 from .communication import RosSender
+from std_msgs.msg import Header
 
+def fill_current_time(msg): # todo: hopefully nobody needs to send messages with a zero timestamp...
+    if isinstance(msg, Header):
+        if msg.stamp.secs == 0 and msg.stamp.nsecs == 0:
+            msg.stamp = rospy.Time.now()
+    if hasattr(msg, '__slots__'):
+        for slot in msg.__slots__:
+            fill_current_time(getattr(msg, slot))    
 
 class RosPublisher(RosSender):
     """
@@ -49,6 +57,7 @@ class RosPublisher(RosSender):
             None: Explicitly return None so behaviour can be
         """
         self.msg.deserialize(data)
+        fill_current_time(self.msg)
         self.pub.publish(self.msg)
 
         return None
